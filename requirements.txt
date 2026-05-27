@@ -1,0 +1,9 @@
+flask==3.0.3
+requests==2.32.3
+python-dotenv==1.0.1
+werkzeug==3.0.3
+pypdf==4.3.1
+pdfminer.six==20231228
+deep-translator==1.11.4
+pymupdf==1.27.2.3
+beautifulsoup4==4.14.3

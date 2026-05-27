@@ -1,0 +1,618 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} - 論文管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- パンくず -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">プロジェクト一覧</a></li>
+            <li class="breadcrumb-item active">{{ project.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- ヘッダー -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1" style="border-left: 5px solid {{ project.color }}; padding-left: 12px;">
+                {{ project.name }}
+            </h2>
+            {% if project.description %}
+            <p class="text-muted mb-0 ms-3">{{ project.description }}</p>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" onclick="toggleBulkCitation()">
+                <i class="bi bi-file-text me-1"></i>引用テキスト一括出力
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaperModal">
+                <i class="bi bi-plus-lg me-1"></i>論文を追加
+            </button>
+        </div>
+    </div>
+
+    <!-- 引用テキスト一括出力パネル（論文詳細ページと同じ方式） -->
+    <div id="bulk-citation-panel" class="mb-3" style="display:none">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-secondary active"
+                                id="bulk-style-APA" onclick="switchBulkStyle('APA')">APA</button>
+                        <button class="btn btn-outline-secondary"
+                                id="bulk-style-IEEE" onclick="switchBulkStyle('IEEE')">IEEE</button>
+                        <button class="btn btn-outline-secondary"
+                                id="bulk-style-MLA" onclick="switchBulkStyle('MLA')">MLA</button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button onclick="downloadBulkCitation()"
+                                class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-download me-1"></i>テキスト保存
+                        </button>
+                        <button id="bulk-copy-btn" onclick="copyBulkCitation()"
+                                class="btn btn-primary btn-sm">
+                            <i class="bi bi-clipboard me-1"></i>コピー
+                        </button>
+                    </div>
+                </div>
+                <textarea id="bulk-citation-textarea" readonly
+                          class="form-control"
+                          style="font-size:0.88rem; line-height:1.7; resize:vertical; background:#f8f9fa; min-height:160px"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- フィルター・検索バー -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="local-search"
+                               placeholder="このプロジェクト内を検索...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" id="filter-status">
+                        <option value="">すべてのステータス</option>
+                        <option value="unread">未読</option>
+                        <option value="reading">読書中</option>
+                        <option value="done">読了</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" id="sort-order">
+                        <option value="newest">新しい順</option>
+                        <option value="oldest">古い順</option>
+                        <option value="citations">引用数順</option>
+                        <option value="year">発行年順</option>
+                    </select>
+                </div>
+                <div class="col-md-2 text-end">
+                    <small class="text-muted">{{ papers|length }} 本</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 論文リスト -->
+    <div id="papers-list">
+    {% if papers %}
+    {% for paper in papers %}
+    <div class="card paper-card mb-2 shadow-sm"
+         data-title="{{ paper.title }}"
+         data-authors="{{ paper.authors }}"
+         data-tags="{{ paper.tags }}"
+         data-status="{{ paper.read_status }}"
+         data-citations="{{ paper.citation_count }}"
+         data-year="{{ paper.year or 0 }}"
+         data-created="{{ paper.created_at }}">
+        <div class="card-body py-2 px-3">
+            <div class="row align-items-center">
+                <div class="col">
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="status-badge status-{{ paper.read_status }}" title="ステータス"></span>
+                        <div class="flex-grow-1 min-w-0">
+                            <a href="/paper/{{ paper.id }}" class="paper-title fw-semibold text-decoration-none text-dark">
+                                {{ paper.title }}
+                            </a>
+                            {% if paper.authors %}
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-people me-1"></i>{{ paper.authors[:120] }}{% if paper.authors|length > 120 %}...{% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="d-flex flex-wrap gap-2 mt-1 align-items-center">
+                                {% if paper.venue %}
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-journal me-1"></i>{{ paper.venue[:40] }}
+                                </span>
+                                {% endif %}
+                                {% if paper.year %}
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-calendar me-1"></i>{{ paper.year }}
+                                </span>
+                                {% endif %}
+                                {% if paper.citation_count %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-quote me-1"></i>{{ paper.citation_count }} 引用
+                                </span>
+                                {% endif %}
+                                {% if paper.pdf_path %}
+                                <a href="/paper/{{ paper.id }}/pdf" target="_blank" class="badge bg-danger text-white text-decoration-none">
+                                    <i class="bi bi-file-pdf me-1"></i>PDF
+                                </a>
+                                {% endif %}
+                                {% set tag_list = paper.tags | from_json %}
+                                {% for tag in tag_list %}
+                                <span class="badge bg-primary bg-opacity-75">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto d-flex gap-1">
+                    <a href="/paper/{{ paper.id }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger"
+                            onclick="deletePaper({{ paper.id }}, '{{ paper.title[:30] }}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-center py-5 text-muted" id="empty-state">
+        <i class="bi bi-file-earmark-plus display-1"></i>
+        <p class="mt-3 fs-5">論文がありません</p>
+        <p>「論文を追加」ボタンからDOIやURLで論文を追加してください。</p>
+    </div>
+    {% endif %}
+    </div>
+</div>
+
+<!-- 論文追加モーダル -->
+<div class="modal fade" id="addPaperModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-plus me-2"></i>論文を追加</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- タブ切り替え -->
+                <ul class="nav nav-pills mb-4" id="addMethodTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" id="tab-pdf" onclick="switchTab('pdf')">
+                            <i class="bi bi-file-pdf me-1"></i>PDFから追加
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="tab-doi" onclick="switchTab('doi')">
+                            <i class="bi bi-link-45deg me-1"></i>DOI / URLから追加
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" id="tab-manual" onclick="switchTab('manual')">
+                            <i class="bi bi-keyboard me-1"></i>手動入力
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- PDFアップロード -->
+                <div id="section-pdf" class="method-section">
+                    <div class="card border-danger mb-4">
+                        <div class="card-body">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-file-pdf-fill text-danger me-1"></i>PDFファイルをアップロード
+                            </label>
+                            <p class="text-muted small mb-3">
+                                IEEE / Springer / ACM など、ダウンロードしたPDFをそのままアップロードできます。<br>
+                                PDFからDOIを自動検出し、論文情報を取得します。
+                            </p>
+                            <div id="pdf-drop-zone" class="pdf-drop-zone mb-3"
+                                 ondragover="event.preventDefault(); this.classList.add('dragover')"
+                                 ondragleave="this.classList.remove('dragover')"
+                                 ondrop="handlePdfDrop(event)">
+                                <i class="bi bi-cloud-arrow-up display-5 text-danger mb-2"></i>
+                                <p class="mb-1 fw-semibold">ここにPDFをドラッグ＆ドロップ</p>
+                                <p class="text-muted small mb-3">または</p>
+                                <label class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-folder2-open me-1"></i>ファイルを選択
+                                    <input type="file" id="pdf-file-input" accept=".pdf" class="d-none"
+                                           onchange="handlePdfFile(this.files[0])">
+                                </label>
+                            </div>
+                            <div id="pdf-upload-status"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DOI/URL取得 -->
+                <div id="section-doi" class="method-section d-none">
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-magic me-1"></i>DOI / ArXiv URLから自動取得
+                            </label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="doi-input"
+                                       placeholder="例: 10.1109/CVPR.2023.XXXXX  または  https://arxiv.org/abs/1706.03762">
+                                <button class="btn btn-primary" id="fetch-btn" onclick="fetchMetadata()">
+                                    <i class="bi bi-cloud-download me-1"></i>取得
+                                </button>
+                            </div>
+                            <div class="mt-2" id="fetch-status"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 論文情報フォーム（共通） -->
+                <div id="section-manual" class="method-section d-none"><!-- 手動タブ用の案内のみ --></div>
+
+                <hr class="my-3">
+                <h6 class="fw-bold mb-3 text-muted">論文情報</h6>
+                <input type="hidden" id="temp-pdf-name">
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">タイトル <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="paper-title">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">著者</label>
+                        <input type="text" class="form-control" id="paper-authors"
+                               placeholder="著者名をカンマ区切りで">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">DOI</label>
+                        <input type="text" class="form-control" id="paper-doi">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">URL</label>
+                        <input type="text" class="form-control" id="paper-url">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">掲載誌 / 会議名</label>
+                        <input type="text" class="form-control" id="paper-venue">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">発行年</label>
+                        <input type="number" class="form-control" id="paper-year" min="1900" max="2030">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">被引用数</label>
+                        <input type="number" class="form-control" id="paper-citations" min="0" value="0">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">概要</label>
+                        <textarea class="form-control" id="paper-abstract" rows="5"
+                                  placeholder="論文の概要・アブストラクト"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">タグ</label>
+                        <input type="text" class="form-control" id="paper-tags"
+                               placeholder="タグをカンマ区切りで（例: 深層学習, CV, NLP）">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">ステータス</label>
+                        <select class="form-select" id="paper-status">
+                            <option value="unread">未読</option>
+                            <option value="reading">読書中</option>
+                            <option value="done">読了</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">メモ</label>
+                        <textarea class="form-control" id="paper-notes" rows="3"
+                                  placeholder="論文に関するメモや考察など"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="add-paper-btn" onclick="addPaper()">
+                    <i class="bi bi-plus-circle me-1"></i>追加
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROJECT_ID = {{ project.id }};
+
+// --- タブ切り替え ---
+function switchTab(tab) {
+    ['pdf', 'doi', 'manual'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+        document.getElementById(`section-${t}`).classList.toggle('d-none', t !== tab);
+    });
+}
+
+// --- PDFドロップ＆ファイル選択 ---
+function handlePdfDrop(event) {
+    event.preventDefault();
+    document.getElementById('pdf-drop-zone').classList.remove('dragover');
+    const file = event.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith('.pdf')) {
+        handlePdfFile(file);
+    } else {
+        showToast('PDFファイルを選択してください', 'warning');
+    }
+}
+
+async function handlePdfFile(file) {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showToast('PDFファイルのみ対応しています', 'warning');
+        return;
+    }
+
+    const zone = document.getElementById('pdf-drop-zone');
+    const status = document.getElementById('pdf-upload-status');
+    zone.classList.add('uploading');
+    status.innerHTML = `
+        <div class="alert alert-info py-2 mb-0">
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            「${file.name}」をアップロードしてDOI・論文情報を解析中...
+        </div>`;
+
+    const formData = new FormData();
+    formData.append('pdf', file);
+
+    try {
+        const res = await fetch('/paper/upload_and_extract', {method: 'POST', body: formData});
+        const data = await res.json();
+        zone.classList.remove('uploading');
+
+        if (data.error) {
+            status.innerHTML = `<div class="alert alert-danger py-2 mb-0">${data.error}</div>`;
+            return;
+        }
+
+        // フォームに反映
+        fillForm(data);
+        document.getElementById('temp-pdf-name').value = data.temp_pdf || '';
+
+        // ドロップゾーンをPDF確認表示に変更
+        zone.innerHTML = `
+            <i class="bi bi-file-pdf-fill display-5 text-danger mb-2"></i>
+            <p class="mb-0 fw-semibold">${file.name}</p>
+            <button class="btn btn-sm btn-outline-secondary mt-2" onclick="resetPdfZone()">
+                <i class="bi bi-x me-1"></i>別のPDFを選択
+            </button>`;
+
+        if (data.doi_found) {
+            status.innerHTML = `<div class="alert alert-success py-2 mb-0">
+                <i class="bi bi-check-circle-fill me-1"></i>DOIを検出し、論文情報を自動入力しました。内容を確認してください。
+            </div>`;
+        } else if (data.title) {
+            status.innerHTML = `<div class="alert alert-warning py-2 mb-0">
+                <i class="bi bi-exclamation-triangle me-1"></i>DOIを検出できませんでした。PDFのテキストからタイトルを取得しました。手動で情報を補完してください。
+            </div>`;
+        } else {
+            status.innerHTML = `<div class="alert alert-warning py-2 mb-0">
+                <i class="bi bi-exclamation-triangle me-1"></i>自動解析できませんでした。手動で情報を入力してください。
+            </div>`;
+        }
+    } catch (e) {
+        zone.classList.remove('uploading');
+        status.innerHTML = `<div class="alert alert-danger py-2 mb-0">アップロードに失敗しました: ${e.message}</div>`;
+    }
+}
+
+function resetPdfZone() {
+    const zone = document.getElementById('pdf-drop-zone');
+    zone.innerHTML = `
+        <i class="bi bi-cloud-arrow-up display-5 text-danger mb-2"></i>
+        <p class="mb-1 fw-semibold">ここにPDFをドラッグ＆ドロップ</p>
+        <p class="text-muted small mb-3">または</p>
+        <label class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-folder2-open me-1"></i>ファイルを選択
+            <input type="file" id="pdf-file-input" accept=".pdf" class="d-none"
+                   onchange="handlePdfFile(this.files[0])">
+        </label>`;
+    document.getElementById('pdf-upload-status').innerHTML = '';
+    document.getElementById('temp-pdf-name').value = '';
+}
+
+function fillForm(data) {
+    document.getElementById('paper-title').value = data.title || '';
+    document.getElementById('paper-authors').value = data.authors || '';
+    document.getElementById('paper-doi').value = data.doi || '';
+    document.getElementById('paper-url').value = data.url || '';
+    document.getElementById('paper-venue').value = data.venue || '';
+    document.getElementById('paper-year').value = data.year || '';
+    document.getElementById('paper-citations').value = data.citation_count || 0;
+    document.getElementById('paper-abstract').value = data.abstract || '';
+}
+
+// --- DOI/URL取得 ---
+async function fetchMetadata() {
+    const identifier = document.getElementById('doi-input').value.trim();
+    if (!identifier) { showToast('DOIまたはURLを入力してください', 'warning'); return; }
+
+    const btn = document.getElementById('fetch-btn');
+    const status = document.getElementById('fetch-status');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>取得中...';
+    status.innerHTML = '';
+
+    const res = await fetch('/paper/fetch_metadata', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier})
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>取得';
+
+    if (data.error) {
+        status.innerHTML = `<div class="alert alert-danger py-1 mb-0">${data.error}</div>`;
+        return;
+    }
+    fillForm(data);
+    status.innerHTML = `<div class="alert alert-success py-1 mb-0"><i class="bi bi-check-circle me-1"></i>情報を取得しました</div>`;
+}
+
+// --- 論文追加 ---
+async function addPaper() {
+    const title = document.getElementById('paper-title').value.trim();
+    if (!title) { showToast('タイトルを入力してください', 'warning'); return; }
+
+    const btn = document.getElementById('add-paper-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>追加中...';
+
+    const tags = document.getElementById('paper-tags').value.split(',').map(t => t.trim()).filter(t => t);
+
+    const res = await fetch('/paper/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            project_id: PROJECT_ID,
+            title,
+            authors: document.getElementById('paper-authors').value,
+            abstract: document.getElementById('paper-abstract').value,
+            doi: document.getElementById('paper-doi').value,
+            url: document.getElementById('paper-url').value,
+            venue: document.getElementById('paper-venue').value,
+            year: document.getElementById('paper-year').value,
+            citation_count: parseInt(document.getElementById('paper-citations').value) || 0,
+            tags,
+            notes: document.getElementById('paper-notes').value,
+            read_status: document.getElementById('paper-status').value,
+            temp_pdf: document.getElementById('temp-pdf-name').value,
+        })
+    });
+    const data = await res.json();
+    if (data.id) {
+        window.location.href = `/paper/${data.id}`;
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>追加';
+        showToast(data.error || 'エラーが発生しました', 'danger');
+    }
+}
+
+// --- 削除 ---
+async function deletePaper(id, title) {
+    if (!confirm(`「${title}」を削除しますか？`)) return;
+    const res = await fetch(`/paper/${id}/delete`, {method: 'POST'});
+    const data = await res.json();
+    if (data.success) { window.location.reload(); }
+}
+
+// --- フィルター ---
+function filterPapers() {
+    const q = document.getElementById('local-search').value.toLowerCase();
+    const status = document.getElementById('filter-status').value;
+    const sort = document.getElementById('sort-order').value;
+
+    let cards = Array.from(document.querySelectorAll('.paper-card'));
+    cards.forEach(card => {
+        const text = (card.dataset.title + card.dataset.authors + card.dataset.tags).toLowerCase();
+        const statusMatch = !status || card.dataset.status === status;
+        const textMatch = !q || text.includes(q);
+        card.style.display = (statusMatch && textMatch) ? '' : 'none';
+    });
+
+    const visible = cards.filter(c => c.style.display !== 'none');
+    visible.sort((a, b) => {
+        if (sort === 'citations') return parseInt(b.dataset.citations) - parseInt(a.dataset.citations);
+        if (sort === 'year') return parseInt(b.dataset.year) - parseInt(a.dataset.year);
+        if (sort === 'oldest') return a.dataset.created.localeCompare(b.dataset.created);
+        return b.dataset.created.localeCompare(a.dataset.created);
+    });
+    const list = document.getElementById('papers-list');
+    visible.forEach(c => list.appendChild(c));
+}
+
+document.getElementById('local-search').addEventListener('input', filterPapers);
+document.getElementById('filter-status').addEventListener('change', filterPapers);
+document.getElementById('sort-order').addEventListener('change', filterPapers);
+document.getElementById('doi-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchMetadata();
+});
+
+// モーダルリセット
+document.getElementById('addPaperModal').addEventListener('hidden.bs.modal', () => {
+    resetPdfZone();
+    document.getElementById('pdf-upload-status').innerHTML = '';
+    ['paper-title','paper-authors','paper-doi','paper-url','paper-venue',
+     'paper-year','paper-abstract','paper-tags','paper-notes','doi-input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('paper-citations').value = '0';
+    document.getElementById('paper-status').value = 'unread';
+    document.getElementById('temp-pdf-name').value = '';
+    document.getElementById('fetch-status').innerHTML = '';
+    switchTab('pdf');
+});
+
+// ===== 引用テキスト一括出力 =====
+const BULK_CITATIONS = {{ bulk_citations | tojson }};
+let bulkCurrentStyle = 'APA';
+
+function toggleBulkCitation() {
+    const panel = document.getElementById('bulk-citation-panel');
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) switchBulkStyle(bulkCurrentStyle);
+}
+
+function switchBulkStyle(style) {
+    bulkCurrentStyle = style;
+    document.getElementById('bulk-citation-textarea').value = BULK_CITATIONS[style] || '';
+    ['APA', 'IEEE', 'MLA'].forEach(s => {
+        const btn = document.getElementById(`bulk-style-${s}`);
+        btn.className = s === style
+            ? 'btn btn-secondary btn-sm'
+            : 'btn btn-outline-secondary btn-sm';
+    });
+}
+
+function downloadBulkCitation() {
+    const text = BULK_CITATIONS[bulkCurrentStyle] || '';
+    blobDownload(text, `citations_${bulkCurrentStyle}.txt`);
+}
+
+function copyBulkCitation() {
+    const ta  = document.getElementById('bulk-citation-textarea');
+    const btn = document.getElementById('bulk-copy-btn');
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    if (ok) { onBulkCopySuccess(btn); return; }
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(ta.value)
+            .then(() => onBulkCopySuccess(btn))
+            .catch(() => showToast('Ctrl+C（Mac: ⌘+C）でコピーしてください', 'info'));
+    } else {
+        showToast('テキストを全選択しました。Ctrl+C（Mac: ⌘+C）でコピーしてください', 'info');
+    }
+}
+
+function onBulkCopySuccess(btn) {
+    btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>コピーしました！';
+    btn.classList.replace('btn-primary', 'btn-success');
+    setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>コピー';
+        btn.classList.replace('btn-success', 'btn-primary');
+    }, 2500);
+    showToast('✅ 引用テキストをコピーしました！', 'success');
+}
+</script>
+{% endblock %}

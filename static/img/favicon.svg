@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bellGrad" cx="42%" cy="38%" r="62%">
+      <stop offset="0%"   stop-color="#f3e8ff"/>
+      <stop offset="35%"  stop-color="#d8a4ff"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0.75"/>
+    </radialGradient>
+    <!-- 背景：パステル水色 -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="55%">
+      <stop offset="0%"   stop-color="#e0f4ff"/>
+      <stop offset="100%" stop-color="#b8e4f5"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景円（パステル水色） -->
+  <circle cx="50" cy="50" r="50" fill="url(#bgGrad)"/>
+
+  <!-- くらげ傘 -->
+  <path d="M23 45 C23 23 36 15 50 15 C64 15 77 23 77 45 C77 54 63 59 50 59 C37 59 23 54 23 45Z"
+        fill="url(#bellGrad)"/>
+
+  <!-- 傘底面の光沢楕円 -->
+  <ellipse cx="50" cy="59" rx="27" ry="4.8"
+           fill="#c084fc" opacity="0.35"/>
+
+  <!-- 白いハイライト -->
+  <ellipse cx="41" cy="29" rx="10" ry="5.5"
+           fill="white" opacity="0.45" transform="rotate(-18,41,29)"/>
+
+  <!-- 縁の光沢ライン -->
+  <path d="M23 45 C23 54 37 59 50 59 C63 59 77 54 77 45"
+        stroke="#f0d9ff" stroke-width="1.3" fill="none" opacity="0.6"/>
+
+  <!-- 外触手 7本（波状、かわいい紫） -->
+  <path d="M27 57 C25 63 28 68 26 74 C24 80 27 85 25 91"
+        stroke="#c084fc" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <path d="M34 59 C32 65 35 71 33 77 C31 83 34 88 32 94"
+        stroke="#d8a4ff" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.75"/>
+  <path d="M41 61 C39 67 42 73 40 79 C38 85 41 90 39 96"
+        stroke="#c084fc" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <path d="M50 62 C52 68 49 74 51 80 C53 86 50 91 52 97"
+        stroke="#d8a4ff" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.85"/>
+  <path d="M59 61 C61 67 58 73 60 79 C62 85 59 90 61 96"
+        stroke="#c084fc" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <path d="M66 59 C68 65 65 71 67 77 C69 83 66 88 68 94"
+        stroke="#d8a4ff" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.75"/>
+  <path d="M73 57 C75 63 72 68 74 74 C76 80 73 85 75 91"
+        stroke="#c084fc" stroke-width="1.7" fill="none" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- 内腕 4本（太め・短め・白系） -->
+  <path d="M43 59 C42 64 44 69 43 74"
+        stroke="#f0d9ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M47 60 C46 65 48 70 47 75"
+        stroke="#f0d9ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M53 60 C54 65 52 70 53 75"
+        stroke="#f0d9ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity="0.7"/>
+  <path d="M57 59 C58 64 56 69 57 74"
+        stroke="#f0d9ff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity="0.7"/>
+</svg>

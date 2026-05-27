@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Chrome拡張機能 - Aurelia{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:680px">
+    <h4 class="fw-bold mb-1"><i class="bi bi-puzzle me-2"></i>Chrome 拡張機能のインストール</h4>
+    <p class="text-muted mb-4">arXiv などの論文ページをワンクリックで Aurelia に追加できます。</p>
+
+    <!-- Step 1 -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold bg-primary text-white">
+            <span class="badge bg-white text-primary me-2">Step 1</span>
+            Chrome の拡張機能管理ページを開く
+        </div>
+        <div class="card-body">
+            <p class="mb-2">Chrome のアドレスバーに以下を入力して Enter：</p>
+            <div class="input-group mb-2">
+                <input type="text" class="form-control font-monospace"
+                       value="chrome://extensions" readonly>
+                <button class="btn btn-outline-secondary"
+                        onclick="copyText('chrome://extensions', this)">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </div>
+            <p class="text-muted small mb-0">
+                または Chrome メニュー（⋮）→ 拡張機能 → 拡張機能を管理
+            </p>
+        </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">
+            <span class="badge bg-primary me-2">Step 2</span>
+            デベロッパーモードを ON にする
+        </div>
+        <div class="card-body">
+            <p class="mb-0">拡張機能ページ右上の <strong>「デベロッパーモード」</strong> トグルをオンにする。</p>
+        </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">
+            <span class="badge bg-primary me-2">Step 3</span>
+            拡張機能フォルダを読み込む
+        </div>
+        <div class="card-body">
+            <p class="mb-2">
+                「<strong>パッケージ化されていない拡張機能を読み込む</strong>」をクリックして、
+                以下のフォルダを選択：
+            </p>
+            <div class="input-group mb-2">
+                <input type="text" class="form-control font-monospace small"
+                       id="ext-path"
+                       value="{{ ext_path }}" readonly>
+                <button class="btn btn-outline-secondary"
+                        onclick="copyText(document.getElementById('ext-path').value, this)">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+            </div>
+            <p class="text-muted small mb-0">
+                <i class="bi bi-magic me-1 text-success"></i>
+                <strong class="text-success">このパスはあなたの環境に合わせて自動検出されています。</strong>
+                フォルダ選択ダイアログで上記のパスを直接入力するか、コピーしてご利用ください。
+            </p>
+        </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header fw-bold">
+            <span class="badge bg-primary me-2">Step 4</span>
+            論文ページで使う
+        </div>
+        <div class="card-body">
+            <div class="row g-3 text-center">
+                <div class="col-4">
+                    <div class="border rounded p-3 h-100">
+                        <i class="bi bi-file-earmark-text display-6 text-danger mb-2 d-block"></i>
+                        <small>arXiv などの<br>論文ページを開く</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="border rounded p-3 h-100">
+                        <i class="bi bi-puzzle display-6 text-primary mb-2 d-block"></i>
+                        <small>Chrome 右上の拡張機能アイコン →<br>「Aurelia」をクリック</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="border rounded p-3 h-100">
+                        <i class="bi bi-check-circle display-6 text-success mb-2 d-block"></i>
+                        <small>プロジェクトを選んで<br>「追加する」をクリック</small>
+                    </div>
+                </div>
+            </div>
+            <p class="text-muted small mt-3 mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Aurelia サーバー（<code>python3 app.py</code>）が起動している必要があります。
+            </p>
+        </div>
+    </div>
+
+    <!-- 対応サイト -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h6 class="fw-bold mb-2">対応サイト</h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% for site in ['arXiv', 'DOI リンク', 'doi.org', 'IEEE Xplore', 'ACM Digital Library', 'Springer'] %}
+                <span class="badge bg-light text-dark border fs-6">{{ site }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyText(text, btn) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-secondary');
+    setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-secondary');
+    }, 1500);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}プロジェクト一覧 - Aurelia{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="bi bi-folder2-open me-2"></i>研究プロジェクト</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProjectModal">
+            <i class="bi bi-plus-lg me-1"></i>新規プロジェクト
+        </button>
+    </div>
+
+    {% if projects %}
+    <div class="row g-4">
+        {% for project in projects %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card project-card h-100 shadow-sm" style="border-top: 4px solid {{ project.color }}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title mb-1">
+                            <a href="/project/{{ project.id }}" class="text-decoration-none text-dark fw-bold">
+                                {{ project.name }}
+                            </a>
+                        </h5>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary border-0" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item text-danger" href="#"
+                                       onclick="deleteProject({{ project.id }}, '{{ project.name }}')">
+                                    <i class="bi bi-trash me-2"></i>削除
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% if project.description %}
+                    <p class="card-text text-muted small mb-3">{{ project.description }}</p>
+                    {% endif %}
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="badge bg-secondary">
+                            <i class="bi bi-file-earmark-text me-1"></i>{{ project.paper_count }} 本
+                        </span>
+                        <small class="text-muted">{{ project.created_at[:10] }}</small>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <a href="/project/{{ project.id }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-arrow-right-circle me-1"></i>開く
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-folder-x display-1"></i>
+        <p class="mt-3 fs-5">プロジェクトがありません</p>
+        <p>「新規プロジェクト」ボタンから研究プロジェクトを作成してください。</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- プロジェクト作成モーダル -->
+<div class="modal fade" id="createProjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-folder-plus me-2"></i>新規プロジェクト</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">プロジェクト名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="project-name" placeholder="例：深層学習の研究">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">説明</label>
+                    <textarea class="form-control" id="project-desc" rows="2"
+                              placeholder="このプロジェクトの概要や目的など"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">カラー</label>
+                    <div class="d-flex gap-2 flex-wrap" id="color-picker">
+                        {% for color in ['#62c0dc','#7ddcb4','#f7a8c0','#fde8a0','#c4b0f0','#a8e0d4','#f7c8a0','#a8c4d8'] %}
+                        <div class="color-swatch {% if loop.first %}selected{% endif %}"
+                             style="background:{{ color }}" data-color="{{ color }}" onclick="selectColor(this)"></div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="createProject()">
+                    <i class="bi bi-check-lg me-1"></i>作成
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedColor = '#62c0dc';
+
+function selectColor(el) {
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedColor = el.dataset.color;
+}
+
+async function createProject() {
+    const name = document.getElementById('project-name').value.trim();
+    const desc = document.getElementById('project-desc').value.trim();
+    if (!name) { showToast('プロジェクト名を入力してください', 'warning'); return; }
+
+    const res = await fetch('/project/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, description: desc, color: selectedColor})
+    });
+    const data = await res.json();
+    if (data.id) {
+        window.location.href = `/project/${data.id}`;
+    } else {
+        showToast(data.error || 'エラーが発生しました', 'danger');
+    }
+}
+
+async function deleteProject(id, name) {
+    if (!confirm(`「${name}」を削除しますか？\nこのプロジェクト内の論文もすべて削除されます。`)) return;
+    const res = await fetch(`/project/${id}/delete`, {method: 'POST'});
+    const data = await res.json();
+    if (data.success) { window.location.reload(); }
+}
+</script>
+{% endblock %}

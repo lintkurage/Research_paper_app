@@ -1,0 +1,129 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    width: 360px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: #333;
+    background: #fff;
+}
+
+.header {
+    background: #62c0dc;
+    color: white;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.header-icon { font-size: 16px; }
+.header-title { font-weight: 700; font-size: 14px; }
+
+.content { padding: 12px 14px; }
+
+/* ステータス */
+.status {
+    padding: 10px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.status.loading  { background: #f0f8ff; color: #555; }
+.status.success  { background: #eafaf1; color: #27ae60; }
+.status.warning  { background: #fef9e7; color: #b7700d; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+    width: 14px; height: 14px;
+    border: 2px solid #aaa;
+    border-top-color: #555;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+}
+
+/* フォーム */
+.field { margin-bottom: 8px; }
+.field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 3px;
+}
+.required { color: #e74c3c; }
+
+.field input, .field select, .field textarea {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #333;
+    background: #fafafa;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: #62c0dc;
+    background: #fff;
+}
+.field textarea { resize: none; }
+
+.row { display: flex; gap: 8px; }
+
+/* ボタン */
+#add-btn {
+    width: 100%;
+    padding: 9px;
+    background: #62c0dc;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: background .2s;
+}
+#add-btn:hover   { background: #3ea5c4; }
+#add-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+.btn-secondary {
+    padding: 7px 18px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* エラー */
+.error-box {
+    background: #fdf2f2;
+    border: 1px solid #f5c6c6;
+    border-radius: 6px;
+    padding: 12px;
+    line-height: 1.6;
+}
+.error-box code {
+    display: block;
+    background: #333;
+    color: #7ec8e3;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+/* 完了 */
+.text-center { text-align: center; }
+.done-icon   { font-size: 36px; margin: 12px 0 8px; }
+.done-title  { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.small  { font-size: 11px; }
+.gray   { color: #888; margin-bottom: 10px; }
+
+.hidden { display: none; }

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurelia に追加</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { font-size: 0.9rem; background: #f8f9fa; }
+        .header { background: #62c0dc; color: white; padding: 10px 16px; }
+        .header h6 { margin: 0; font-weight: 700; }
+        #status-area { min-height: 60px; }
+    </style>
+</head>
+<body>
+<div class="header d-flex align-items-center gap-2">
+    <i class="bi bi-journal-bookmark-fill fs-5"></i>
+    <h6>Aurelia に論文を追加</h6>
+</div>
+
+<div class="p-3">
+    <!-- 取得状況 -->
+    <div id="status-area" class="mb-3">
+        <div class="d-flex align-items-center gap-2 text-muted">
+            <span class="spinner-border spinner-border-sm"></span>
+            <span>論文情報を取得中...</span>
+        </div>
+    </div>
+
+    <!-- 論文情報フォーム（取得後に表示） -->
+    <div id="form-area" class="d-none">
+        <div class="mb-2">
+            <label class="form-label fw-semibold mb-1">タイトル <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="p-title">
+        </div>
+        <div class="mb-2">
+            <label class="form-label fw-semibold mb-1">著者</label>
+            <input type="text" class="form-control form-control-sm" id="p-authors">
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-8">
+                <label class="form-label fw-semibold mb-1">掲載誌 / 会議</label>
+                <input type="text" class="form-control form-control-sm" id="p-venue">
+            </div>
+            <div class="col-4">
+                <label class="form-label fw-semibold mb-1">年</label>
+                <input type="number" class="form-control form-control-sm" id="p-year">
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold mb-1">概要</label>
+            <textarea class="form-control form-control-sm" id="p-abstract" rows="3"
+                      style="resize:none"></textarea>
+        </div>
+
+        <!-- プロジェクト選択 -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold mb-1">追加先プロジェクト <span class="text-danger">*</span></label>
+            <select class="form-select form-select-sm" id="p-project">
+                <option value="">-- 選択してください --</option>
+                {% for p in projects %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="d-grid">
+            <button class="btn btn-primary" id="add-btn" onclick="addPaper()">
+                <i class="bi bi-plus-circle me-1"></i>追加する
+            </button>
+        </div>
+    </div>
+
+    <!-- 完了メッセージ -->
+    <div id="done-area" class="d-none text-center py-3">
+        <i class="bi bi-check-circle-fill text-success display-5 mb-2 d-block"></i>
+        <p class="fw-bold mb-1" id="done-title"></p>
+        <p class="text-muted small mb-3">プロジェクトに追加しました</p>
+        <button class="btn btn-sm btn-outline-secondary" onclick="window.close()">
+            閉じる
+        </button>
+    </div>
+</div>
+
+<script>
+const SOURCE_URL = {{ url | tojson }};
+let meta = {};
+
+// ページ読み込み時にメタデータ取得
+window.addEventListener('load', async () => {
+    try {
+        const res  = await fetch('/bookmarklet/fetch?url=' + encodeURIComponent(SOURCE_URL));
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+            document.getElementById('status-area').innerHTML = `
+                <div class="alert alert-warning py-2 small mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>${data.error || '取得失敗'}
+                    <br><span class="text-muted">手動で入力してください。</span>
+                </div>`;
+            document.getElementById('p-title').value = '';
+        } else {
+            document.getElementById('status-area').innerHTML =
+                '<div class="alert alert-success py-2 small mb-0"><i class="bi bi-check-circle me-1"></i>論文情報を取得しました</div>';
+            meta = data;
+            document.getElementById('p-title').value    = data.title || '';
+            document.getElementById('p-authors').value  = data.authors || '';
+            document.getElementById('p-venue').value    = data.venue || '';
+            document.getElementById('p-year').value     = data.year || '';
+            document.getElementById('p-abstract').value = data.abstract || '';
+        }
+    } catch (e) {
+        document.getElementById('status-area').innerHTML =
+            '<div class="alert alert-danger py-2 small mb-0">通信エラーが発生しました。手動で入力してください。</div>';
+    }
+    document.getElementById('form-area').classList.remove('d-none');
+});
+
+async function addPaper() {
+    const title     = document.getElementById('p-title').value.trim();
+    const projectId = document.getElementById('p-project').value;
+    if (!title)     { alert('タイトルを入力してください'); return; }
+    if (!projectId) { alert('プロジェクトを選択してください'); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>追加中...';
+
+    const res = await fetch('/bookmarklet/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            project_id:       projectId,
+            title,
+            authors:          document.getElementById('p-authors').value,
+            abstract:         document.getElementById('p-abstract').value,
+            venue:            document.getElementById('p-venue').value,
+            year:             document.getElementById('p-year').value,
+            doi:              meta.doi || '',
+            url:              meta.url || SOURCE_URL,
+            publication_date: meta.publication_date || '',
+            citation_count:   meta.citation_count || 0,
+        })
+    });
+    const data = await res.json();
+
+    if (data.id) {
+        document.getElementById('form-area').classList.add('d-none');
+        document.getElementById('status-area').classList.add('d-none');
+        document.getElementById('done-title').textContent = title;
+        document.getElementById('done-area').classList.remove('d-none');
+        setTimeout(() => window.close(), 3000);
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>追加する';
+        alert(data.error || '追加に失敗しました');
+    }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

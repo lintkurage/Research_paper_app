@@ -1,0 +1,755 @@
+{% extends "base.html" %}
+{% block title %}{{ paper.title[:60] }} - 論文管理{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- パンくず -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">プロジェクト一覧</a></li>
+            <li class="breadcrumb-item"><a href="/project/{{ project.id }}">{{ project.name }}</a></li>
+            <li class="breadcrumb-item active text-truncate" style="max-width:300px">{{ paper.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <!-- メインコンテンツ -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <!-- ステータス + アクション -->
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <select class="form-select form-select-sm status-select status-{{ paper.read_status }}"
+                                    id="read-status" style="width:auto" onchange="updateStatus()">
+                                <option value="unread" {% if paper.read_status=='unread' %}selected{% endif %}>未読</option>
+                                <option value="reading" {% if paper.read_status=='reading' %}selected{% endif %}>読書中</option>
+                                <option value="done" {% if paper.read_status=='done' %}selected{% endif %}>読了</option>
+                            </select>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if paper.url %}
+                            <a href="{{ paper.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>元論文を開く
+                            </a>
+                            {% endif %}
+                            {% if paper.pdf_path %}
+                            <a href="/paper/{{ paper.id }}/pdf" target="_blank" class="btn btn-sm btn-danger">
+                                <i class="bi bi-file-pdf me-1"></i>PDF
+                            </a>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleCitation()">
+                                <i class="bi bi-quote me-1"></i>引用テキスト
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 引用テキスト展開パネル -->
+                    <div id="citation-panel" class="mb-3" style="display:none">
+                        <div class="border rounded p-3 bg-light">
+                            <!-- スタイル切り替え + アクション -->
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-secondary active"
+                                            id="style-APA" onclick="switchStyle('APA')">APA</button>
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            id="style-IEEE" onclick="switchStyle('IEEE')">IEEE</button>
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            id="style-MLA" onclick="switchStyle('MLA')">MLA</button>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button onclick="downloadCitation()"
+                                            class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-download me-1"></i>保存
+                                    </button>
+                                    <button id="copy-btn" onclick="copyCitation()"
+                                            class="btn btn-primary btn-sm">
+                                        <i class="bi bi-clipboard me-1"></i>コピー
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea id="citation-textarea" readonly rows="3"
+                                      class="form-control"
+                                      style="font-size:0.92rem; line-height:1.7; resize:none; background:#fff"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- タイトル -->
+                    <h3 class="fw-bold mb-2" id="display-title">{{ paper.title }}</h3>
+
+                    <!-- 著者 -->
+                    {% if paper.authors %}
+                    <p class="text-muted mb-3">
+                        <i class="bi bi-people me-1"></i>{{ paper.authors }}
+                    </p>
+                    {% endif %}
+
+                    <!-- メタ情報バッジ -->
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        {% if paper.venue %}
+                        <span class="badge bg-light text-dark border fs-6">
+                            <i class="bi bi-journal-text me-1"></i>{{ paper.venue }}
+                        </span>
+                        {% endif %}
+                        {% if paper.year %}
+                        <span class="badge bg-light text-dark border fs-6">
+                            <i class="bi bi-calendar3 me-1"></i>{{ paper.year }}年
+                            {% if paper.publication_date and paper.publication_date != paper.year|string %}
+                            ({{ paper.publication_date }})
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                        <span class="badge bg-warning text-dark fs-6" id="citation-badge">
+                            <i class="bi bi-quote me-1"></i>
+                            <span id="citation-count">{{ paper.citation_count }}</span> 引用
+                        </span>
+                        {% if paper.doi %}
+                        <a href="https://doi.org/{{ paper.doi }}" target="_blank"
+                           class="badge bg-info text-dark text-decoration-none fs-6">
+                            <i class="bi bi-link-45deg me-1"></i>DOI
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <!-- 概要 -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-muted text-uppercase small mb-0">概要（Abstract）</h6>
+                            {% if paper.abstract %}
+                            <button class="btn btn-sm btn-outline-success" id="translate-btn"
+                                    onclick="translateAbstract()">
+                                <i class="bi bi-translate me-1"></i>日本語訳を表示
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div id="abstract-display" class="bg-light rounded p-3" style="line-height:1.8">
+                            {% if paper.abstract %}
+                            {{ paper.abstract }}
+                            {% else %}
+                            <span class="text-muted">概要なし</span>
+                            {% endif %}
+                        </div>
+                        <!-- 翻訳結果エリア（初期非表示） -->
+                        <div id="translation-area" class="mt-2" style="display:none">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-success fw-semibold">
+                                    <i class="bi bi-translate me-1"></i>日本語訳（Google翻訳）
+                                </small>
+                                <button class="btn btn-sm btn-link text-muted p-0"
+                                        onclick="hideTranslation()">
+                                    <i class="bi bi-x-lg"></i> 閉じる
+                                </button>
+                            </div>
+                            <div id="translation-text" class="border border-success rounded p-3 bg-white"
+                                 style="line-height:1.8; color:#1a6a3a"></div>
+                        </div>
+                    </div>
+
+                    <!-- タグ -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-muted text-uppercase small mb-2">タグ</h6>
+                        <div id="tags-display">
+                            {% set tag_list = paper.tags | from_json %}
+                            {% if tag_list %}
+                            {% for tag in tag_list %}
+                            <span class="badge bg-primary me-1 mb-1 fs-6">{{ tag }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted small">タグなし</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- メモ -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-journal-text me-2"></i>メモ・考察</h6>
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary active" id="memo-edit-btn"
+                                    onclick="setMemoMode('edit')">
+                                <i class="bi bi-pencil me-1"></i>編集
+                            </button>
+                            <button class="btn btn-outline-secondary" id="memo-preview-btn"
+                                    onclick="setMemoMode('preview')">
+                                <i class="bi bi-eye me-1"></i>プレビュー
+                            </button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="saveNotes()">
+                            <i class="bi bi-save me-1"></i>保存
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <textarea class="form-control border-0" id="notes-area" rows="8"
+                              placeholder="Markdownが使えます&#10;**太字**  *斜体*  # 見出し  - リスト  `コード`"
+                              style="resize:vertical">{{ paper.notes }}</textarea>
+                    <div id="notes-preview" class="d-none markdown-preview px-1"
+                         style="min-height:180px; line-height:1.8"></div>
+                </div>
+            </div>
+            <!-- 関連論文 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-diagram-3 me-2"></i>関連論文</h6>
+                    <button class="btn btn-sm btn-outline-primary" id="load-related-btn"
+                            onclick="loadRelatedPapers()">
+                        <i class="bi bi-cloud-download me-1"></i>読み込む
+                    </button>
+                </div>
+                <div class="card-body" id="related-body">
+                    <p class="text-muted small mb-0">「読み込む」を押すと Semantic Scholar から関連論文を取得します。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- サイドバー -->
+        <div class="col-lg-4">
+            <!-- 被引用数更新 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header fw-bold">
+                    <i class="bi bi-graph-up me-2"></i>被引用数
+                </div>
+                <div class="card-body text-center">
+                    <div class="display-4 fw-bold text-warning" id="big-citation">{{ paper.citation_count }}</div>
+                    <p class="text-muted small mb-3">
+                        {% if paper.citation_updated_at %}
+                        更新: {{ paper.citation_updated_at[:16] }}
+                        {% else %}
+                        未更新
+                        {% endif %}
+                    </p>
+                    <button class="btn btn-outline-warning btn-sm w-100" onclick="refreshCitations()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>最新の被引用数を取得
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF管理 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header fw-bold">
+                    <i class="bi bi-file-pdf me-2"></i>PDF
+                </div>
+                <div class="card-body">
+                    {% if paper.pdf_path %}
+                    <a href="/paper/{{ paper.id }}/pdf" target="_blank" class="btn btn-danger btn-sm w-100 mb-2">
+                        <i class="bi bi-file-pdf me-1"></i>PDFを開く
+                    </a>
+                    {% endif %}
+                    <label class="form-label small fw-semibold">PDFをアップロード</label>
+                    <input type="file" class="form-control form-control-sm" id="pdf-upload"
+                           accept=".pdf" onchange="uploadPdf()">
+                    <div id="pdf-status" class="mt-2"></div>
+                </div>
+            </div>
+
+            <!-- プロジェクト移動 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header fw-bold">
+                    <i class="bi bi-folder-symlink me-2"></i>プロジェクト
+                </div>
+                <div class="card-body">
+                    <p class="mb-2 small text-muted">現在のプロジェクト:</p>
+                    <p class="fw-semibold mb-3">{{ project.name }}</p>
+                    <select class="form-select form-select-sm mb-2" id="move-project">
+                        {% for p in all_projects %}
+                        <option value="{{ p.id }}" {% if p.id == project.id %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="movePaper()">
+                        <i class="bi bi-arrow-right-circle me-1"></i>移動
+                    </button>
+                </div>
+            </div>
+
+            <!-- 編集 -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header fw-bold">
+                    <i class="bi bi-pencil me-2"></i>論文情報を編集
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">タイトル</label>
+                        <input type="text" class="form-control form-control-sm" id="edit-title"
+                               value="{{ paper.title }}">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">著者</label>
+                        <input type="text" class="form-control form-control-sm" id="edit-authors"
+                               value="{{ paper.authors }}">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">DOI</label>
+                        <input type="text" class="form-control form-control-sm" id="edit-doi"
+                               value="{{ paper.doi }}">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">URL</label>
+                        <input type="text" class="form-control form-control-sm" id="edit-url"
+                               value="{{ paper.url }}">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">掲載誌 / 会議</label>
+                        <input type="text" class="form-control form-control-sm" id="edit-venue"
+                               value="{{ paper.venue }}">
+                    </div>
+                    <div class="row g-1 mb-2">
+                        <div class="col">
+                            <label class="form-label small fw-semibold">発行年</label>
+                            <input type="number" class="form-control form-control-sm" id="edit-year"
+                                   value="{{ paper.year or '' }}">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">タグ（カンマ区切り）</label>
+                        <input type="text" class="form-control form-control-sm" id="edit-tags"
+                               value="{{ paper.tags | from_json | join(', ') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">概要</label>
+                        <textarea class="form-control form-control-sm" id="edit-abstract" rows="4">{{ paper.abstract }}</textarea>
+                    </div>
+                    <button class="btn btn-primary btn-sm w-100" onclick="savePaper()">
+                        <i class="bi bi-save me-1"></i>保存
+                    </button>
+                </div>
+            </div>
+
+            <!-- 削除 -->
+            <div class="card shadow-sm border-danger">
+                <div class="card-body">
+                    <button class="btn btn-outline-danger btn-sm w-100"
+                            onclick="deletePaper({{ paper.id }})">
+                        <i class="bi bi-trash me-1"></i>この論文を削除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+const PAPER_ID   = {{ paper.id }};
+const PROJECT_ID = {{ project.id }};
+const CITATIONS  = {{ citations | tojson }};
+const HAS_PDF    = {{ 'true' if paper.pdf_path else 'false' }};
+let currentStyle = 'APA';
+
+async function refreshCitations() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>取得中...';
+    const res = await fetch(`/paper/${PAPER_ID}/refresh_citations`, {method: 'POST'});
+    const data = await res.json();
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>最新の被引用数を取得';
+    if (data.citation_count !== undefined) {
+        document.getElementById('citation-count').textContent = data.citation_count;
+        document.getElementById('big-citation').textContent = data.citation_count;
+        showToast(`被引用数を更新しました: ${data.citation_count}`, 'success');
+    } else {
+        showToast(data.error || '取得できませんでした', 'warning');
+    }
+}
+
+async function uploadPdf() {
+    const file = document.getElementById('pdf-upload').files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('pdf', file);
+    document.getElementById('pdf-status').innerHTML =
+        '<div class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>アップロード中...</div>';
+    const res = await fetch(`/paper/${PAPER_ID}/upload_pdf`, {method: 'POST', body: formData});
+    const data = await res.json();
+    if (data.success) {
+        showToast('PDFをアップロードしました', 'success');
+        document.getElementById('pdf-status').innerHTML =
+            '<div class="alert alert-success py-1 mb-0 small">アップロード完了。ページを再読み込みするとPDFボタンが表示されます。</div>';
+    } else {
+        document.getElementById('pdf-status').innerHTML =
+            `<div class="alert alert-danger py-1 mb-0 small">${data.error}</div>`;
+    }
+}
+
+async function saveNotes() {
+    const notes = document.getElementById('notes-area').value;
+    await fetch(`/paper/${PAPER_ID}/update`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title: document.getElementById('edit-title').value,
+            authors: document.getElementById('edit-authors').value,
+            abstract: document.getElementById('edit-abstract').value,
+            doi: document.getElementById('edit-doi').value,
+            url: document.getElementById('edit-url').value,
+            venue: document.getElementById('edit-venue').value,
+            year: document.getElementById('edit-year').value,
+            tags: document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(t => t),
+            notes,
+            read_status: document.getElementById('read-status').value,
+        })
+    });
+    showToast('メモを保存しました', 'success');
+}
+
+async function savePaper() {
+    const tags = document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(t => t);
+    const res = await fetch(`/paper/${PAPER_ID}/update`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title: document.getElementById('edit-title').value,
+            authors: document.getElementById('edit-authors').value,
+            abstract: document.getElementById('edit-abstract').value,
+            doi: document.getElementById('edit-doi').value,
+            url: document.getElementById('edit-url').value,
+            venue: document.getElementById('edit-venue').value,
+            year: document.getElementById('edit-year').value,
+            tags,
+            notes: document.getElementById('notes-area').value,
+            read_status: document.getElementById('read-status').value,
+        })
+    });
+    const data = await res.json();
+    if (data.success) {
+        showToast('保存しました', 'success');
+        document.getElementById('display-title').textContent = document.getElementById('edit-title').value;
+        document.getElementById('abstract-display').textContent = document.getElementById('edit-abstract').value;
+        const tagsDiv = document.getElementById('tags-display');
+        tagsDiv.innerHTML = tags.length
+            ? tags.map(t => `<span class="badge bg-primary me-1 mb-1 fs-6">${t}</span>`).join('')
+            : '<span class="text-muted small">タグなし</span>';
+    } else {
+        showToast('保存に失敗しました', 'danger');
+    }
+}
+
+async function updateStatus() {
+    const status = document.getElementById('read-status').value;
+    document.getElementById('read-status').className =
+        `form-select form-select-sm status-select status-${status}`;
+    await fetch(`/paper/${PAPER_ID}/update`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title: document.getElementById('edit-title').value,
+            authors: document.getElementById('edit-authors').value,
+            abstract: document.getElementById('edit-abstract').value,
+            doi: document.getElementById('edit-doi').value,
+            url: document.getElementById('edit-url').value,
+            venue: document.getElementById('edit-venue').value,
+            year: document.getElementById('edit-year').value,
+            tags: document.getElementById('edit-tags').value.split(',').map(t => t.trim()).filter(t => t),
+            notes: document.getElementById('notes-area').value,
+            read_status: status,
+        })
+    });
+    showToast('ステータスを更新しました', 'success');
+}
+
+async function movePaper() {
+    const newProjectId = document.getElementById('move-project').value;
+    if (parseInt(newProjectId) === PROJECT_ID) {
+        showToast('同じプロジェクトです', 'warning');
+        return;
+    }
+    const res = await fetch(`/paper/${PAPER_ID}/move`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({project_id: newProjectId})
+    });
+    const data = await res.json();
+    if (data.success) {
+        showToast('移動しました。リダイレクトします...', 'success');
+        setTimeout(() => window.location.href = `/project/${newProjectId}`, 1000);
+    }
+}
+
+async function deletePaper(id) {
+    if (!confirm('この論文を削除しますか？')) return;
+    const res = await fetch(`/paper/${id}/delete`, {method: 'POST'});
+    const data = await res.json();
+    if (data.success) {
+        window.location.href = `/project/${PROJECT_ID}`;
+    }
+}
+
+async function translateAbstract() {
+    const btn = document.getElementById('translate-btn');
+    const area = document.getElementById('translation-area');
+    const textEl = document.getElementById('translation-text');
+
+    // すでに表示中なら閉じる
+    if (area.style.display !== 'none') {
+        hideTranslation();
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>翻訳中...';
+
+    try {
+        const res = await fetch(`/paper/${PAPER_ID}/translate_abstract`, {method: 'POST'});
+        const data = await res.json();
+
+        if (data.translated) {
+            textEl.textContent = data.translated;
+            if (data.note) {
+                textEl.innerHTML += `<br><small class="text-muted">(${data.note})</small>`;
+            }
+            area.style.display = 'block';
+            btn.innerHTML = '<i class="bi bi-translate me-1"></i>日本語訳を閉じる';
+        } else {
+            showToast(data.error || '翻訳に失敗しました', 'danger');
+            btn.innerHTML = '<i class="bi bi-translate me-1"></i>日本語訳を表示';
+        }
+    } catch (e) {
+        showToast('翻訳エラーが発生しました', 'danger');
+        btn.innerHTML = '<i class="bi bi-translate me-1"></i>日本語訳を表示';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ===== Markdown メモ =====
+function setMemoMode(mode) {
+    const ta      = document.getElementById('notes-area');
+    const preview = document.getElementById('notes-preview');
+    const editBtn = document.getElementById('memo-edit-btn');
+    const prevBtn = document.getElementById('memo-preview-btn');
+
+    if (mode === 'preview') {
+        preview.innerHTML = marked.parse(ta.value || '*メモがありません*');
+        ta.classList.add('d-none');
+        preview.classList.remove('d-none');
+        editBtn.classList.remove('active');
+        prevBtn.classList.add('active');
+    } else {
+        ta.classList.remove('d-none');
+        preview.classList.add('d-none');
+        editBtn.classList.add('active');
+        prevBtn.classList.remove('active');
+    }
+}
+
+function hideTranslation() {
+    document.getElementById('translation-area').style.display = 'none';
+    document.getElementById('translate-btn').innerHTML =
+        '<i class="bi bi-translate me-1"></i>日本語訳を表示';
+}
+
+// ===== 引用テキスト =====
+
+function toggleCitation() {
+    const panel = document.getElementById('citation-panel');
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) switchStyle(currentStyle); // 開くたびに現在のスタイルで表示
+}
+
+function switchStyle(style) {
+    currentStyle = style;
+    document.getElementById('citation-textarea').value = CITATIONS[style] || '';
+    ['APA', 'IEEE', 'MLA'].forEach(s => {
+        const btn = document.getElementById(`style-${s}`);
+        btn.className = s === style
+            ? 'btn btn-secondary btn-sm'
+            : 'btn btn-outline-secondary btn-sm';
+    });
+}
+
+function downloadCitation() {
+    const text = CITATIONS[currentStyle] || '';
+    blobDownload(text, `citation_${currentStyle}.txt`);
+}
+
+function copyCitation() {
+    const ta  = document.getElementById('citation-textarea');
+    const btn = document.getElementById('copy-btn');
+
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+
+    // 方法A: execCommand（同期）
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    if (ok) { onCopySuccess(btn); return; }
+
+    // 方法B: Clipboard API（フォールバック）
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(ta.value)
+            .then(() => onCopySuccess(btn))
+            .catch(() => onCopyManual());
+    } else {
+        onCopyManual();
+    }
+}
+
+function onCopySuccess(btn) {
+    btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>コピーしました！';
+    btn.classList.replace('btn-primary', 'btn-success');
+    setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>コピー';
+        btn.classList.replace('btn-success', 'btn-primary');
+    }, 2500);
+    showToast('✅ 引用テキストをコピーしました！', 'success');
+}
+
+function onCopyManual() {
+    showToast('テキストを全選択しました。Ctrl+C（Mac: ⌘+C）でコピーしてください', 'info');
+}
+
+// ===== 関連論文 =====
+function makePaperCard(p) {
+    const link   = p.link ? `href="${p.link}" target="_blank"` : '';
+    const tag    = p.link ? 'a' : 'span';
+    const badge  = p.citation_count
+        ? `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-quote"></i> ${p.citation_count}</span>`
+        : '';
+    const meta   = [p.year, p.venue].filter(Boolean).join(' · ');
+    return `
+<div class="border rounded p-2 mb-2 small">
+  <${tag} ${link} class="fw-semibold text-decoration-none text-dark d-block mb-1">
+    ${p.title}${badge}
+  </${tag}>
+  ${p.authors ? `<div class="text-muted">${p.authors}${p.authors.endsWith('...') ? '' : ''}</div>` : ''}
+  ${meta ? `<div class="text-muted">${meta}</div>` : ''}
+</div>`;
+}
+
+async function loadRelatedPapers() {
+    const btn  = document.getElementById('load-related-btn');
+    const body = document.getElementById('related-body');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>取得中...';
+    body.innerHTML = '<p class="text-muted small">Semantic Scholar から取得中...</p>';
+
+    try {
+        const res  = await fetch(`/paper/${PAPER_ID}/related_papers`);
+        const data = await res.json();
+
+        if (data.error) {
+            const pdfBtn = HAS_PDF
+                ? `<div class="mt-2">
+                     <button class="btn btn-sm btn-outline-secondary" onclick="loadPdfReferences()">
+                       <i class="bi bi-file-pdf me-1"></i>PDFから参考文献を抽出する
+                     </button>
+                   </div>`
+                : '';
+            body.innerHTML =
+                `<div class="alert alert-warning py-2 mb-0 small">${data.error}</div>${pdfBtn}`;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>再試行';
+            return;
+        }
+
+        const refs = data.references || [];
+        const cits = data.citations  || [];
+        const noResults = refs.length === 0 && cits.length === 0;
+
+        const pdfSection = (noResults && HAS_PDF)
+            ? `<hr class="my-3">
+               <div class="text-center">
+                 <p class="text-muted small mb-2">Semantic Scholar に収録されていない論文のようです</p>
+                 <button class="btn btn-sm btn-outline-secondary" onclick="loadPdfReferences()">
+                   <i class="bi bi-file-pdf me-1"></i>PDFから参考文献を抽出する
+                 </button>
+               </div>`
+            : '';
+
+        body.innerHTML = `
+<ul class="nav nav-tabs mb-3" id="relatedTabs">
+    <li class="nav-item">
+        <button class="nav-link active" onclick="switchRelated('ref', this)">
+            参考文献 <span class="badge bg-secondary ms-1">${refs.length}</span>
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchRelated('cit', this)">
+            被引用論文 <span class="badge bg-secondary ms-1">${cits.length}</span>
+        </button>
+    </li>
+</ul>
+<div id="related-ref">
+    ${refs.length ? refs.map(makePaperCard).join('') : '<p class="text-muted small">参考文献が見つかりませんでした</p>'}
+</div>
+<div id="related-cit" class="d-none">
+    ${cits.length ? cits.map(makePaperCard).join('') : '<p class="text-muted small">被引用論文が見つかりませんでした</p>'}
+</div>
+${pdfSection}`;
+
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>読み込み済み';
+    } catch (e) {
+        body.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">取得に失敗しました</div>';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-download me-1"></i>再試行';
+    }
+}
+
+function switchRelated(tab, el) {
+    document.querySelectorAll('#relatedTabs .nav-link').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('related-ref').classList.toggle('d-none', tab !== 'ref');
+    document.getElementById('related-cit').classList.toggle('d-none', tab !== 'cit');
+}
+
+// ===== PDFから参考文献を抽出 =====
+function makePdfRefCard(ref) {
+    const linkTag = ref.link
+        ? ` <a href="${ref.link}" target="_blank" class="text-primary small ms-1">
+               <i class="bi bi-box-arrow-up-right"></i>
+             </a>`
+        : '';
+    const badge = ref.doi
+        ? `<span class="badge bg-info text-dark ms-1" style="font-size:0.7rem">DOI</span>`
+        : ref.arxiv
+        ? `<span class="badge bg-secondary ms-1" style="font-size:0.7rem">arXiv</span>`
+        : '';
+    return `
+<div class="border rounded p-2 mb-2" style="font-size:0.82rem; line-height:1.5">
+  <span class="text-muted fw-bold me-1">[${ref.num}]</span>${ref.raw}${linkTag}${badge}
+</div>`;
+}
+
+async function loadPdfReferences() {
+    const body = document.getElementById('related-body');
+    body.innerHTML = `<p class="text-muted small">
+        <span class="spinner-border spinner-border-sm me-1"></span>PDFから参考文献を抽出中...
+    </p>`;
+
+    try {
+        const res  = await fetch(`/paper/${PAPER_ID}/pdf_references`);
+        const data = await res.json();
+
+        if (data.error) {
+            body.innerHTML =
+                `<div class="alert alert-warning py-2 mb-0 small">${data.error}</div>`;
+            return;
+        }
+
+        const refs     = data.references || [];
+        const withLink = refs.filter(r => r.link).length;
+
+        body.innerHTML = `
+<div class="d-flex justify-content-between align-items-center mb-2 small text-muted">
+  <span>
+    <i class="bi bi-file-pdf me-1 text-danger"></i>
+    PDFから <strong>${data.total}</strong> 件の参考文献を抽出
+    ${withLink > 0 ? `（うち <strong>${withLink}</strong> 件にリンクあり）` : ''}
+  </span>
+</div>
+${refs.map(makePdfRefCard).join('')}`;
+
+    } catch (e) {
+        body.innerHTML =
+            '<div class="alert alert-danger py-2 mb-0 small">抽出に失敗しました</div>';
+    }
+}
+</script>
+{% endblock %}
